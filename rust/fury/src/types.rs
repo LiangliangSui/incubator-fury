@@ -184,6 +184,7 @@ pub enum FieldType {
 
 const MAX_UNT32: u64 = (1 << 31) - 1;
 
+#[allow(dead_code)]
 pub fn compute_string_hash(s: &str) -> u32 {
     let mut hash: u64 = 17;
     s.as_bytes().iter().for_each(|b| {
@@ -233,6 +234,7 @@ pub fn compute_struct_hash(props: Vec<(&str, FieldType, &str)>) -> u32 {
     hash
 }
 
+#[allow(dead_code)]
 pub mod config_flags {
     pub const IS_NULL_FLAG: u8 = 1 << 0;
     pub const IS_LITTLE_ENDIAN_FLAG: u8 = 2;
