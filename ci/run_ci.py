@@ -23,11 +23,17 @@ import urllib.request as ulib
 import os
 import logging
 import importlib
+import sys
 
 
 BAZEL_VERSION = "6.3.2"
 
 PYARROW_VERSION = "14.0.0"
+
+PYARROW_LEGACY_VERSION = "12.0.0"
+
+PROJECT_ROOT_DIR = os.path.join(os.path.split(os.path.realpath(__file__))[0], "../")
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -71,6 +77,10 @@ def _get_bazel_download_url():
     )
 
 
+def _cd_project_subdir(subdir):
+    os.chdir(os.path.join(PROJECT_ROOT_DIR, subdir))
+
+
 def _run_cpp():
     _install_cpp_deps()
     # run test
@@ -84,8 +94,7 @@ def _run_rust():
     _exec_cmd("rustup component add clippy-preview")
     _exec_cmd("rustup component add rustfmt")
     logging.info("Executing fury rust tests")
-    cur_script_abs_path = os.path.split(os.path.realpath(__file__))[0]
-    os.chdir(os.path.join(cur_script_abs_path, "../rust"))
+    _cd_project_subdir("rust")
 
     cmds = (
         "cargo doc --no-deps --document-private-items --all-features --open",
@@ -102,9 +111,17 @@ def _run_rust():
     logging.info("Executing fury rust tests succeeds")
 
 
+def _run_python():
+    logging.info("Executing fury python tests")
+    _install_bazel()
+    _install_pyfury()
+    _cd_project_subdir("python")
+    _exec_cmd("pytest -v -s --durations=60 pyfury/tests")
+    logging.info("Executing fury python tests succeeds")
+
+
 def _install_cpp_deps():
     _exec_cmd(f"pip install pyarrow=={PYARROW_VERSION}")
-    _exec_cmd("pip install psutil")
     _install_bazel()
 
 
@@ -126,11 +143,27 @@ def _install_bazel():
     _exec_cmd("bazel --version")
 
     # default is byte
+    _exec_cmd("pip install psutil")
     psutil = importlib.import_module("psutil")
     total_mem = psutil.virtual_memory().total
     limit_jobs = int(total_mem / 1024 / 1024 / 1024 / 3)
     with open(".bazelrc", "a") as file:
         file.write(f"\nbuild --jobs={limit_jobs}")
+
+
+def _install_pyfury():
+    _cd_project_subdir("python")
+    major = sys.version_info.major
+    minor = sys.version_info.minor
+    if major == 3:
+        pick_version = PYARROW_VERSION if minor >= 8 else PYARROW_LEGACY_VERSION
+    else:
+        pick_version = PYARROW_VERSION if major > 3 else PYARROW_LEGACY_VERSION
+    logging.info(f"pick pyarrow version: {pick_version}")
+
+    _exec_cmd(f"pip install --upgrade pyarrow=={pick_version}")
+    _exec_cmd("pip install Cython wheel numpy pytest pandas setuptools")
+    _exec_cmd("pip install -v -e .")
 
 
 def _parse_args():
@@ -155,6 +188,14 @@ def _parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     rust_parser.set_defaults(func=_run_rust)
+
+    python_parser = subparsers.add_parser(
+        "python",
+        description="Run Python CI",
+        help="Run Python CI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    python_parser.set_defaults(func=_run_python)
 
     args = parser.parse_args()
     arg_dict = dict(vars(args))
