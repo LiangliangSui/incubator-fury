@@ -326,7 +326,10 @@ if ! git diff --quiet &>/dev/null; then
     echo 'Files updated:'
     echo
 
-    git --no-pager diff --name-only
+    changed_file=`git --no-pager diff --name-only`
+    echo $changed_file
+    echo $PWD
+    cat ../java/fury-core/src/main/java/org/apache/fury/BaseFury.java
 
     exit 1
 fi
