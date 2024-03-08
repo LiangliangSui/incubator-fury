@@ -31,16 +31,23 @@ import org.testng.annotations.Test;
 public class BlackListTest extends FuryTestBase {
 
   @Test
-  public void testGetDefaultBlackList() {
-    Assert.assertTrue(
-        BlackList.getDefaultBlackList().contains("java.rmi.server.UnicastRemoteObject"));
-    Assert.assertTrue(
-        BlackList.getDefaultBlackList().contains("com.sun.jndi.rmi.registry.BindingEnumeration"));
-    Assert.assertFalse(BlackList.getDefaultBlackList().contains("java.util.HashMap"));
-    Assert.assertTrue(
-        BlackList.getDefaultBlackList().contains(java.beans.Expression.class.getName()));
-    Assert.assertTrue(
-        BlackList.getDefaultBlackList().contains(UnicastRemoteObject.class.getName()));
+  public void testCheckHitBlackList() {
+    // Hit the blacklist.
+    Assert.assertThrows(
+        InsecureException.class,
+        () -> BlackList.checkHitBlackList("java.rmi.server.UnicastRemoteObject"));
+    Assert.assertThrows(
+        InsecureException.class,
+        () -> BlackList.checkHitBlackList("com.sun.jndi.rmi.registry.BindingEnumeration"));
+    Assert.assertThrows(
+        InsecureException.class,
+        () -> BlackList.checkHitBlackList(java.beans.Expression.class.getName()));
+    Assert.assertThrows(
+        InsecureException.class,
+        () -> BlackList.checkHitBlackList(UnicastRemoteObject.class.getName()));
+
+    // Not in the blacklist.
+    BlackList.checkHitBlackList("java.util.HashMap");
   }
 
   @Test
@@ -51,6 +58,7 @@ public class BlackListTest extends FuryTestBase {
           Fury.builder().withLanguage(Language.JAVA).requireClassRegistration(true).build(),
           Fury.builder().withLanguage(Language.JAVA).requireClassRegistration(false).build()
         }) {
+      fury.register(UnicastRemoteObject.class);
       Assert.assertThrows(
           InsecureException.class,
           () -> fury.serialize(Platform.newInstance(UnicastRemoteObject.class)));

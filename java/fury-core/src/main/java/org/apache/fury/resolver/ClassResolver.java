@@ -1149,6 +1149,7 @@ public class ClassResolver {
   }
 
   private Serializer createSerializer(Class<?> cls) {
+    BlackList.checkHitBlackList(cls.getName());
     if (!extRegistry.registeredClassIdMap.containsKey(cls) && !shimDispatcher.contains(cls)) {
       String msg =
           String.format(
@@ -1158,8 +1159,7 @@ public class ClassResolver {
                   + "If your env is 100%% secure, you can also avoid this exception by disabling class "
                   + "registration check using `FuryBuilder#requireClassRegistration(false)`",
               cls);
-      boolean forbidden = BlackList.getDefaultBlackList().contains(cls.getName());
-      if (forbidden || !isSecure(extRegistry.registeredClassIdMap, cls)) {
+      if (!isSecure(cls)) {
         throw new InsecureException(msg);
       } else {
         if (!fury.getConfig().suppressClassRegistrationWarnings()
@@ -1185,15 +1185,12 @@ public class ClassResolver {
     return Serializers.newSerializer(fury, cls, serializerClass);
   }
 
-  private boolean isSecure(IdentityMap<Class<?>, Short> registeredClasses, Class<?> cls) {
-    if (BlackList.getDefaultBlackList().contains(cls.getName())) {
-      return false;
-    }
-    if (registeredClasses.containsKey(cls)) {
+  private boolean isSecure(Class<?> cls) {
+    if (extRegistry.registeredClassIdMap.containsKey(cls)) {
       return true;
     }
     if (cls.isArray()) {
-      return isSecure(registeredClasses, TypeUtils.getArrayComponent(cls));
+      return isSecure(TypeUtils.getArrayComponent(cls));
     }
     if (fury.getConfig().requireClassRegistration()) {
       return Functions.isLambda(cls) || ReflectionUtils.isJdkProxy(cls);

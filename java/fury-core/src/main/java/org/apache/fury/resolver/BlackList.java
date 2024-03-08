@@ -26,6 +26,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.fury.exception.InsecureException;
 
 /** A class to record which classes are not allowed for serialization. */
 class BlackList {
@@ -50,7 +51,9 @@ class BlackList {
     }
   }
 
-  static Set<String> getDefaultBlackList() {
-    return DEFAULT_BLACKLIST_SET;
+  static void checkHitBlackList(String clsName) {
+    if (DEFAULT_BLACKLIST_SET.contains(clsName)) {
+      throw new InsecureException(String.format("%s hit blacklist", clsName));
+    }
   }
 }
