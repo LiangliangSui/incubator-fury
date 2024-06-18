@@ -23,7 +23,7 @@ on:
       - main
       - 'releases/**'
       - 'deploy/**'
-      - 'test*'
+      - 'test01'
     tags:
       - v*
   pull_request:
