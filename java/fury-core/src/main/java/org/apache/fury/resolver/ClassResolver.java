@@ -142,10 +142,7 @@ import org.apache.fury.serializer.scala.SingletonCollectionSerializer;
 import org.apache.fury.serializer.scala.SingletonMapSerializer;
 import org.apache.fury.serializer.scala.SingletonObjectSerializer;
 import org.apache.fury.serializer.shim.ShimDispatcher;
-import org.apache.fury.type.Descriptor;
-import org.apache.fury.type.GenericType;
-import org.apache.fury.type.ScalaTypes;
-import org.apache.fury.type.TypeUtils;
+import org.apache.fury.type.*;
 import org.apache.fury.util.GraalvmSupport;
 import org.apache.fury.util.Preconditions;
 import org.apache.fury.util.function.Functions;
@@ -1423,6 +1420,10 @@ public class ClassResolver {
   public void readClassDefs(MemoryBuffer buffer) {
     MetaContext metaContext = fury.getSerializationContext().getMetaContext();
     int classDefOffset = buffer.readInt32();
+    if (classDefOffset == Constants.INVALID_OFFSITE) {
+      // -1 means no ClassDefs are available to read.
+      return;
+    }
     int readerIndex = buffer.readerIndex();
     buffer.readerIndex(classDefOffset);
     int numClassDefs = buffer.readVarUint32Small14();

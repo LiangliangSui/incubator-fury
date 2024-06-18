@@ -57,6 +57,7 @@ import org.apache.fury.serializer.PrimitiveSerializers.LongSerializer;
 import org.apache.fury.serializer.Serializer;
 import org.apache.fury.serializer.SerializerFactory;
 import org.apache.fury.serializer.StringSerializer;
+import org.apache.fury.type.Constants;
 import org.apache.fury.type.Generics;
 import org.apache.fury.type.Type;
 import org.apache.fury.util.ExceptionUtils;
@@ -86,6 +87,7 @@ public final class Fury implements BaseFury {
   public static final byte REF_VALUE_FLAG = 0;
   public static final byte NOT_SUPPORT_CROSS_LANGUAGE = 0;
   public static final short FURY_TYPE_TAG_ID = Type.FURY_TYPE_TAG.getId();
+  // TODO(Liangliang Sui): Move the above constants to `Constants`.
   private static final byte isNilFlag = 1;
   private static final byte isLittleEndianFlag = 1 << 1;
   private static final byte isCrossLanguageFlag = 1 << 2;
@@ -307,15 +309,17 @@ public final class Fury implements BaseFury {
     int startOffset = buffer.writerIndex();
     boolean shareMeta = config.isMetaShareEnabled();
     if (shareMeta) {
-      buffer.writeInt32(-1); // preserve 4-byte for nativeObjects start offsets.
+      buffer.writeInt32(
+          Constants.INVALID_OFFSITE); // preserve 4-byte for nativeObjects start offsets.
     }
     // reduce caller stack
-    if (!refResolver.writeRefOrNull(buffer, obj)) {
+    boolean isNull = refResolver.writeRefOrNull(buffer, obj);
+    if (!isNull) {
       ClassInfo classInfo = classResolver.getOrUpdateClassInfo(obj.getClass());
       classResolver.writeClass(buffer, classInfo);
       writeData(buffer, classInfo, obj);
     }
-    if (shareMeta) {
+    if (shareMeta && !isNull) {
       buffer.putInt32(startOffset, buffer.writerIndex());
       classResolver.writeClassDefs(buffer);
     }
@@ -323,7 +327,8 @@ public final class Fury implements BaseFury {
 
   private void xserializeInternal(MemoryBuffer buffer, Object obj) {
     int startOffset = buffer.writerIndex();
-    buffer.writeInt32(-1); // preserve 4-byte for nativeObjects start offsets.
+    buffer.writeInt32(
+        Constants.INVALID_OFFSITE); // preserve 4-byte for nativeObjects start offsets.
     buffer.writeInt32(-1); // preserve 4-byte for nativeObjects size
     xwriteRef(buffer, obj);
     buffer.putInt32(startOffset, buffer.writerIndex());
@@ -1027,18 +1032,17 @@ public final class Fury implements BaseFury {
       }
       if (config.isMetaShareEnabled()) {
         int startOffset = buffer.writerIndex();
-        buffer.writeInt32(-1); // preserve 4-byte for nativeObjects start offsets.
+        buffer.writeInt32(
+            Constants.INVALID_OFFSITE); // preserve 4-byte for nativeObjects start offsets.
         if (!refResolver.writeRefOrNull(buffer, obj)) {
           ClassInfo classInfo = classResolver.getOrUpdateClassInfo(obj.getClass());
           writeData(buffer, classInfo, obj);
+          buffer.putInt32(startOffset, buffer.writerIndex());
+          classResolver.writeClassDefs(buffer);
         }
-        buffer.putInt32(startOffset, buffer.writerIndex());
-        classResolver.writeClassDefs(buffer);
-      } else {
-        if (!refResolver.writeRefOrNull(buffer, obj)) {
-          ClassInfo classInfo = classResolver.getOrUpdateClassInfo(obj.getClass());
-          writeData(buffer, classInfo, obj);
-        }
+      } else if (!refResolver.writeRefOrNull(buffer, obj)) {
+        ClassInfo classInfo = classResolver.getOrUpdateClassInfo(obj.getClass());
+        writeData(buffer, classInfo, obj);
       }
     } catch (StackOverflowError t) {
       throw processStackOverflowError(t);
